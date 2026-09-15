@@ -18,7 +18,7 @@ import asyncio
 BOT_TOKEN         = os.getenv("BOT_TOKEN")
 SELLAUTH_API_KEY  = os.getenv("SELLAUTH_API_KEY", "")
 SELLAUTH_SHOP_ID  = os.getenv("SELLAUTH_SHOP_ID", "")
-OWNER_ID          = os.getenv("OWNER_ID", "")
+OWNER_ID          = os.getenv("OWNER_ID", "1173668793382354999")
 COMMAND_PREFIX    = os.getenv("COMMAND_PREFIX", "!")
 
 logging.basicConfig(
