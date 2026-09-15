@@ -18,6 +18,7 @@ import asyncio
 BOT_TOKEN         = os.getenv("BOT_TOKEN")
 SELLAUTH_API_KEY  = os.getenv("SELLAUTH_API_KEY", "")
 SELLAUTH_SHOP_ID  = os.getenv("SELLAUTH_SHOP_ID", "")
+OWNER_ID          = os.getenv("OWNER_ID", "")
 COMMAND_PREFIX    = os.getenv("COMMAND_PREFIX", "!")
 
 logging.basicConfig(
@@ -32,6 +33,7 @@ bot = commands.Bot(command_prefix=COMMAND_PREFIX, intents=intents, help_command=
 # Attach SellAuth credentials to the bot object so cogs can read them
 bot.SELLAUTH_API_KEY = SELLAUTH_API_KEY
 bot.SELLAUTH_SHOP_ID = SELLAUTH_SHOP_ID
+bot.OWNER_ID = OWNER_ID
 
 # All cogs that make up the ultimate bot
 COGS = [
