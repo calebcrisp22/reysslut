@@ -446,7 +446,7 @@ class SellAuth(commands.Cog):
     @app_commands.command(name="sa_addcoupon", description="Create a discount coupon")
     @app_commands.describe(code="Coupon code", discount="Discount percentage (1-100)", max_uses="Max uses (0 = unlimited)")
     @app_commands.checks.has_permissions(administrator=True)
-    async def sa_addcoupon(self, interaction: discord.Interaction, code: str, discount: app_commands.Range[int, 1, 100], max_uses: int = None):
+    async def sa_addcoupon(self, interaction: discord.Interaction, code: str, discount: int, max_uses: int = None):
         await interaction.response.defer(ephemeral=True)
         payload = {"code": code, "discount": discount}
         if max_uses:
