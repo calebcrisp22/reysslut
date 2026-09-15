@@ -35,19 +35,19 @@ bot.SELLAUTH_SHOP_ID = SELLAUTH_SHOP_ID
 
 # All cogs that make up the ultimate bot
 COGS = [
-    "cogs.moderation",
-    "cogs.tickets",
-    "cogs.leveling",
-    "cogs.invites",
-    "cogs.utility",
-    "cogs.sellauth",
-    "cogs.welcome",
-    "cogs.embeds",
-    "cogs.info",
-    "cogs.automod",
-    "cogs.afk",
-    "cogs.reactionroles",
-    "cogs.suggestions",
+    "moderation",
+    "tickets",
+    "leveling",
+    "invites",
+    "utility",
+    "sellauth",
+    "welcome",
+    "embeds",
+    "info",
+    "automod",
+    "afk",
+    "reactionroles",
+    "suggestions",
 ]
 
 
