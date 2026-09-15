@@ -16,6 +16,15 @@ import os
 import secrets
 
 
+def is_owner():
+    async def predicate(interaction: discord.Interaction) -> bool:
+        owner_id = getattr(interaction.client, 'OWNER_ID', '')
+        if not owner_id:
+            return False
+        return str(interaction.user.id) == str(owner_id)
+    return app_commands.check(predicate)
+
+
 def sa_embed(title, description="", color=discord.Color.green()):
     e = discord.Embed(title=title, description=description, color=color, timestamp=datetime.datetime.utcnow())
     e.set_footer(text="SellAuth Integration")
@@ -181,7 +190,7 @@ class SellAuth(commands.Cog):
         instructions="Optional DM instructions. Use {title}, {price}, and {payment_url}.",
         image="Optional image upload for the product card",
     )
-    @app_commands.checks.has_permissions(administrator=True)
+    @is_owner()
     async def sa_postproduct(
         self,
         interaction: discord.Interaction,
@@ -238,7 +247,7 @@ class SellAuth(commands.Cog):
 
     # ── /sa_panels ───────────────────────────────────────────
     @app_commands.command(name="sa_panels", description="List active Buy Now product panels")
-    @app_commands.checks.has_permissions(administrator=True)
+    @is_owner()
     async def sa_panels(self, interaction: discord.Interaction):
         if not self.panels:
             return await interaction.response.send_message(
@@ -257,7 +266,7 @@ class SellAuth(commands.Cog):
     # ── /sa_deletepanel ─────────────────────────────────────
     @app_commands.command(name="sa_deletepanel", description="Disable a Buy Now product panel")
     @app_commands.describe(panel_id="Panel ID shown by /sa_panels")
-    @app_commands.checks.has_permissions(administrator=True)
+    @is_owner()
     async def sa_deletepanel(self, interaction: discord.Interaction, panel_id: str):
         if panel_id not in self.panels:
             return await interaction.response.send_message(
@@ -285,7 +294,7 @@ class SellAuth(commands.Cog):
 
     # ── /sa_products ──────────────────────────────────────────
     @app_commands.command(name="sa_products", description="List all products in your SellAuth shop")
-    @app_commands.checks.has_permissions(administrator=True)
+    @is_owner()
     async def sa_products(self, interaction: discord.Interaction):
         if not self._configured():
             return await interaction.response.send_message("❌ SellAuth isn't configured. Set SELLAUTH_API_KEY / SELLAUTH_SHOP_ID.", ephemeral=True)
@@ -305,7 +314,7 @@ class SellAuth(commands.Cog):
     # ── /sa_product ───────────────────────────────────────────
     @app_commands.command(name="sa_product", description="View details of a specific product")
     @app_commands.describe(product_id="Product ID from /sa_products")
-    @app_commands.checks.has_permissions(administrator=True)
+    @is_owner()
     async def sa_product(self, interaction: discord.Interaction, product_id: str):
         await interaction.response.defer(ephemeral=True)
         async with aiohttp.ClientSession() as s:
@@ -324,7 +333,7 @@ class SellAuth(commands.Cog):
     # ── /sa_addproduct ────────────────────────────────────────
     @app_commands.command(name="sa_addproduct", description="Create a new product in your SellAuth shop")
     @app_commands.describe(title="Product name", price="Price (e.g. 9.99)", description="Product description", stock="Stock quantity (-1 for unlimited)")
-    @app_commands.checks.has_permissions(administrator=True)
+    @is_owner()
     async def sa_addproduct(self, interaction: discord.Interaction, title: str, price: float, description: str = "", stock: int = -1):
         await interaction.response.defer(ephemeral=True)
         payload = {"name": title, "price": price, "description": description}
@@ -341,7 +350,7 @@ class SellAuth(commands.Cog):
     # ── /sa_editproduct ───────────────────────────────────────
     @app_commands.command(name="sa_editproduct", description="Edit an existing product")
     @app_commands.describe(product_id="Product ID to edit", title="New title (leave blank to keep)", price="New price (leave 0 to keep)", description="New description")
-    @app_commands.checks.has_permissions(administrator=True)
+    @is_owner()
     async def sa_editproduct(self, interaction: discord.Interaction, product_id: str, title: str = "", price: float = 0, description: str = ""):
         await interaction.response.defer(ephemeral=True)
         payload = {}
@@ -363,7 +372,7 @@ class SellAuth(commands.Cog):
     # ── /sa_deleteproduct ─────────────────────────────────────
     @app_commands.command(name="sa_deleteproduct", description="Delete a product from your shop")
     @app_commands.describe(product_id="Product ID to delete")
-    @app_commands.checks.has_permissions(administrator=True)
+    @is_owner()
     async def sa_deleteproduct(self, interaction: discord.Interaction, product_id: str):
         await interaction.response.defer(ephemeral=True)
         async with aiohttp.ClientSession() as s:
@@ -376,7 +385,7 @@ class SellAuth(commands.Cog):
 
     # ── /sa_orders ────────────────────────────────────────────
     @app_commands.command(name="sa_orders", description="List recent orders from your shop")
-    @app_commands.checks.has_permissions(administrator=True)
+    @is_owner()
     async def sa_orders(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         async with aiohttp.ClientSession() as s:
@@ -394,7 +403,7 @@ class SellAuth(commands.Cog):
     # ── /sa_order ─────────────────────────────────────────────
     @app_commands.command(name="sa_order", description="View a specific order")
     @app_commands.describe(order_id="Order ID")
-    @app_commands.checks.has_permissions(administrator=True)
+    @is_owner()
     async def sa_order(self, interaction: discord.Interaction, order_id: str):
         await interaction.response.defer(ephemeral=True)
         async with aiohttp.ClientSession() as s:
@@ -412,7 +421,7 @@ class SellAuth(commands.Cog):
 
     # ── /sa_invoices ──────────────────────────────────────────
     @app_commands.command(name="sa_invoices", description="List recent invoices for your shop")
-    @app_commands.checks.has_permissions(administrator=True)
+    @is_owner()
     async def sa_invoices(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         async with aiohttp.ClientSession() as s:
@@ -428,7 +437,7 @@ class SellAuth(commands.Cog):
 
     # ── /sa_coupons ───────────────────────────────────────────
     @app_commands.command(name="sa_coupons", description="List all coupons")
-    @app_commands.checks.has_permissions(administrator=True)
+    @is_owner()
     async def sa_coupons(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         async with aiohttp.ClientSession() as s:
@@ -445,7 +454,7 @@ class SellAuth(commands.Cog):
     # ── /sa_addcoupon ─────────────────────────────────────────
     @app_commands.command(name="sa_addcoupon", description="Create a discount coupon")
     @app_commands.describe(code="Coupon code", discount="Discount percentage (1-100)", max_uses="Max uses (0 = unlimited)")
-    @app_commands.checks.has_permissions(administrator=True)
+    @is_owner()
     async def sa_addcoupon(self, interaction: discord.Interaction, code: str, discount: int, max_uses: int = None):
         await interaction.response.defer(ephemeral=True)
         payload = {"code": code, "discount": discount}
@@ -461,7 +470,7 @@ class SellAuth(commands.Cog):
     # ── /sa_deletecoupon ──────────────────────────────────────
     @app_commands.command(name="sa_deletecoupon", description="Delete a coupon")
     @app_commands.describe(coupon_id="Coupon ID")
-    @app_commands.checks.has_permissions(administrator=True)
+    @is_owner()
     async def sa_deletecoupon(self, interaction: discord.Interaction, coupon_id: str):
         await interaction.response.defer(ephemeral=True)
         async with aiohttp.ClientSession() as s:
@@ -473,7 +482,7 @@ class SellAuth(commands.Cog):
 
     # ── /sa_blacklist ─────────────────────────────────────────
     @app_commands.command(name="sa_blacklist", description="List blacklist entries on your shop")
-    @app_commands.checks.has_permissions(administrator=True)
+    @is_owner()
     async def sa_blacklist(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         async with aiohttp.ClientSession() as s:
@@ -490,7 +499,7 @@ class SellAuth(commands.Cog):
     # ── /sa_blacklistadd ──────────────────────────────────────
     @app_commands.command(name="sa_blacklistadd", description="Add an entry (email/ip/etc) to the SellAuth blacklist")
     @app_commands.describe(type="Blacklist type, e.g. email, ip, discord_id", value="The value to blacklist")
-    @app_commands.checks.has_permissions(administrator=True)
+    @is_owner()
     async def sa_blacklistadd(self, interaction: discord.Interaction, type: str, value: str):
         await interaction.response.defer(ephemeral=True)
         payload = {"type": type, "match_type": "exact", "value": value}
@@ -504,7 +513,7 @@ class SellAuth(commands.Cog):
     # ── /sa_blacklistremove ───────────────────────────────────
     @app_commands.command(name="sa_blacklistremove", description="Remove a blacklist entry by its ID")
     @app_commands.describe(blacklist_id="Blacklist entry ID from /sa_blacklist")
-    @app_commands.checks.has_permissions(administrator=True)
+    @is_owner()
     async def sa_blacklistremove(self, interaction: discord.Interaction, blacklist_id: str):
         await interaction.response.defer(ephemeral=True)
         async with aiohttp.ClientSession() as s:
@@ -516,7 +525,7 @@ class SellAuth(commands.Cog):
 
     # ── /sa_shopinfo ──────────────────────────────────────────
     @app_commands.command(name="sa_shopinfo", description="View your SellAuth shop details")
-    @app_commands.checks.has_permissions(administrator=True)
+    @is_owner()
     async def sa_shopinfo(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         async with aiohttp.ClientSession() as s:
@@ -532,7 +541,7 @@ class SellAuth(commands.Cog):
 
     # ── /sa_revenue ───────────────────────────────────────────
     @app_commands.command(name="sa_revenue", description="Check shop revenue/stats")
-    @app_commands.checks.has_permissions(administrator=True)
+    @is_owner()
     async def sa_revenue(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         async with aiohttp.ClientSession() as s:
@@ -548,7 +557,7 @@ class SellAuth(commands.Cog):
 
     # ── /sa_topproducts ───────────────────────────────────────
     @app_commands.command(name="sa_topproducts", description="View your top 5 products by revenue")
-    @app_commands.checks.has_permissions(administrator=True)
+    @is_owner()
     async def sa_topproducts(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         async with aiohttp.ClientSession() as s:
@@ -563,7 +572,7 @@ class SellAuth(commands.Cog):
         await interaction.followup.send(embed=sa_embed("🏆 Top Products", "\n".join(lines)), ephemeral=True)
 
     async def cog_app_command_error(self, interaction, error):
-        if isinstance(error, app_commands.MissingPermissions):
+        if isinstance(error, (app_commands.MissingPermissions, app_commands.CheckFailure)):
             if not interaction.response.is_done():
                 await interaction.response.send_message("❌ You don't have permission to use this command.", ephemeral=True)
             return
