@@ -50,6 +50,7 @@ COGS = [
     "afk",
     "reactionroles",
     "suggestions",
+    "cogs.products",
 ]
 
 
