@@ -68,7 +68,8 @@ class Products(commands.Cog):
     def owner_id(self) -> int:
         return get_owner_id()
 
-    def _product_embed(self, product_name: str, product_description: str, price: float) -> discord.Embed:
+    def _product_embed(self, product_name: str, product_description: str, price: float,
+                        image: discord.Attachment | None = None) -> discord.Embed:
         embed = discord.Embed(
             title=f"🛍️ {product_name}",
             description=product_description,
@@ -76,6 +77,8 @@ class Products(commands.Cog):
             timestamp=datetime.datetime.utcnow(),
         )
         embed.add_field(name="Price", value=f"${price:,.2f}", inline=True)
+        if image is not None:
+            embed.set_image(url=image.url)
         embed.set_footer(text="Click Buy Now to receive payment instructions in your DMs")
         return embed
 
@@ -121,6 +124,7 @@ class Products(commands.Cog):
         product_description="Description of the product",
         price="The price of the product",
         payment_instructions="Instructions to send to users (payment method, address, account details, etc.)",
+        image="An optional image to display on the product post",
     )
     @is_owner()
     async def postproduct(
@@ -130,8 +134,17 @@ class Products(commands.Cog):
         product_description: str,
         price: float,
         payment_instructions: str,
+        image: discord.Attachment | None = None,
     ):
-        embed = self._product_embed(product_name, product_description, price)
+        if image is not None:
+            content_type = image.content_type or ""
+            if not content_type.startswith("image/"):
+                return await interaction.response.send_message(
+                    "❌ The attachment you provided isn't an image. Please attach an image file.",
+                    ephemeral=True,
+                )
+
+        embed = self._product_embed(product_name, product_description, price, image)
         view = BuyNowView(self, product_name, product_description, price, payment_instructions)
         await interaction.response.send_message(embed=embed, view=view)
 
