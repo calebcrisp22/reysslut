@@ -38,13 +38,14 @@ class BuyNowView(discord.ui.View):
     """View attached to a product embed with a single 'Buy Now' button."""
 
     def __init__(self, cog: "Products", product_name: str, product_description: str,
-                 price: float, payment_instructions: str):
+                 price: float, payment_instructions: str, proof_channel_id: int | None = None):
         super().__init__(timeout=None)
         self.cog = cog
         self.product_name = product_name
         self.product_description = product_description
         self.price = price
         self.payment_instructions = payment_instructions
+        self.proof_channel_id = proof_channel_id
 
     @discord.ui.button(label="Buy Now", style=discord.ButtonStyle.success, emoji="💳", custom_id="products:buy_now")
     async def buy_now(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -54,6 +55,7 @@ class BuyNowView(discord.ui.View):
             self.product_description,
             self.price,
             self.payment_instructions,
+            self.proof_channel_id,
         )
 
 
@@ -98,7 +100,8 @@ class Products(commands.Cog):
         return embed
 
     async def handle_buy_now(self, interaction: discord.Interaction, product_name: str,
-                              product_description: str, price: float, payment_instructions: str):
+                              product_description: str, price: float,
+                              payment_instructions: str, proof_channel_id: int | None = None):
         await interaction.response.defer(ephemeral=True)
         try:
             await interaction.user.send(
@@ -119,6 +122,7 @@ class Products(commands.Cog):
             "product_name": product_name,
             "product_description": product_description,
             "price": price,
+            "proof_channel_id": proof_channel_id,
         }
         await interaction.followup.send("✅ Check your DMs for payment instructions!", ephemeral=True)
 
@@ -129,6 +133,7 @@ class Products(commands.Cog):
         price="The price of the product",
         payment_instructions="Instructions to send to users (payment method, address, account details, etc.)",
         image="An optional image to display on the product post",
+        proof_channel="Optional server channel where payment proofs should be posted",
     )
     @is_owner()
     async def postproduct(
@@ -139,6 +144,7 @@ class Products(commands.Cog):
         price: float,
         payment_instructions: str,
         image: discord.Attachment | None = None,
+        proof_channel: discord.TextChannel | None = None,
     ):
         if image is not None:
             content_type = image.content_type or ""
@@ -149,7 +155,14 @@ class Products(commands.Cog):
                 )
 
         embed = self._product_embed(product_name, product_description, price, image)
-        view = BuyNowView(self, product_name, product_description, price, payment_instructions)
+        view = BuyNowView(
+            self,
+            product_name,
+            product_description,
+            price,
+            payment_instructions,
+            proof_channel.id if proof_channel else None,
+        )
         await interaction.response.send_message(embed=embed, view=view)
 
     @postproduct.error
@@ -187,10 +200,11 @@ class Products(commands.Cog):
         if owner is None:
             return
 
+        submitted_code = message.content.strip() or "(no text content)"
         embed = discord.Embed(
-            title="📩 Payment Proof Received",
-            description=message.content or "*(no text content)*",
-            color=discord.Color.green(),
+            title="💰 New Payment Submission",
+            description="A buyer replied to the payment instructions.",
+            color=discord.Color.gold(),
             timestamp=datetime.datetime.utcnow(),
         )
         embed.set_author(
@@ -198,14 +212,24 @@ class Products(commands.Cog):
             icon_url=message.author.display_avatar.url if message.author.display_avatar else None,
         )
         embed.add_field(
-            name="Product to provide",
+            name="Buyer",
+            value=f"{message.author} (`{message.author.id}`)",
+            inline=False,
+        )
+        embed.add_field(
+            name="Item",
             value=purchase["product_name"][:1024],
-            inline=True,
+            inline=False,
         )
         embed.add_field(
             name="Price",
             value=f"${purchase['price']:,.2f}",
-            inline=True,
+            inline=False,
+        )
+        embed.add_field(
+            name="Code Submitted",
+            value=f"`{submitted_code[:1018]}`",
+            inline=False,
         )
         if purchase.get("product_description"):
             embed.add_field(
@@ -221,9 +245,24 @@ class Products(commands.Cog):
             except (discord.HTTPException, discord.NotFound):
                 continue
 
+        delivered = False
+        proof_channel_id = purchase.get("proof_channel_id")
+        if proof_channel_id:
+            try:
+                proof_channel = self.bot.get_channel(int(proof_channel_id))
+                if proof_channel is not None:
+                    await proof_channel.send(embed=embed, files=files if files else None)
+                    delivered = True
+            except (ValueError, discord.Forbidden, discord.HTTPException):
+                pass
+
         try:
-            await owner.send(embed=embed, files=files if files else None)
+            await owner.send(embed=embed)
+            delivered = True
         except discord.HTTPException:
+            pass
+
+        if not delivered:
             try:
                 await message.channel.send(
                     "⚠️ I couldn't notify the seller right now. Please try again in a moment."
@@ -236,7 +275,9 @@ class Products(commands.Cog):
         self.awaiting_proof.pop(message.author.id, None)
 
         try:
-            await message.channel.send("✅ Your message has been forwarded for verification. Thank you!")
+            await message.channel.send(
+                "✅ Got it! Your code has been submitted to our team — we'll confirm shortly."
+            )
         except discord.HTTPException:
             pass
 
