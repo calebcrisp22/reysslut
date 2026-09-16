@@ -80,6 +80,13 @@ the buyer to reply with their receipt or payment code. This feature sends
 instructions and collects the buyer's reply in their DM; it does not
 automatically verify payment or fulfill an order.
 
+### Buyer DM replies
+
+After a buyer clicks **Buy Now** and replies in their DM, the bot sends the
+owner identified by `OWNER_ID` a private embed containing the buyer, product,
+price, reply/payment code, and any attachments. Pending purchase matches are
+stored in `data/sellauth_pending_purchases.json`.
+
 ## Notes
 
 - Data (warnings, tickets, levels, invites, config, automod settings,
