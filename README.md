@@ -87,6 +87,11 @@ owner identified by `OWNER_ID` a private embed containing the buyer, product,
 price, reply/payment code, and any attachments. Pending purchase matches are
 stored in `data/sellauth_pending_purchases.json`.
 
+The separate `/postproduct` command also accepts an optional `proof_channel`
+channel. When selected, payment submissions are posted there as a
+**💰 New Payment Submission** embed with the buyer, item, price, submitted code,
+and any receipt attachment. The submission is still sent to the owner by DM.
+
 ## Notes
 
 - Data (warnings, tickets, levels, invites, config, automod settings,
