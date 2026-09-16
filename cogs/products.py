@@ -61,8 +61,8 @@ class Products(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         # Tracks users who have received payment instructions and are expected
-        # to send payment proof back in DMs.
-        self.awaiting_proof: set[int] = set()
+        # to send payment proof back in DMs, along with the selected product.
+        self.awaiting_proof: dict[int, dict] = {}
 
     @property
     def owner_id(self) -> int:
@@ -115,7 +115,11 @@ class Products(commands.Cog):
                 ephemeral=True,
             )
 
-        self.awaiting_proof.add(interaction.user.id)
+        self.awaiting_proof[interaction.user.id] = {
+            "product_name": product_name,
+            "product_description": product_description,
+            "price": price,
+        }
         await interaction.followup.send("✅ Check your DMs for payment instructions!", ephemeral=True)
 
     @app_commands.command(name="postproduct", description="Post a product with a Buy Now button")
@@ -175,7 +179,8 @@ class Products(commands.Cog):
 
         # Only forward messages from users who clicked Buy Now and are
         # expected to send payment proof.
-        if message.author.id not in self.awaiting_proof:
+        purchase = self.awaiting_proof.get(message.author.id)
+        if not purchase:
             return
 
         owner = self.bot.get_user(owner_id) or await self.bot.fetch_user(owner_id)
@@ -192,6 +197,22 @@ class Products(commands.Cog):
             name=f"{message.author} ({message.author.id})",
             icon_url=message.author.display_avatar.url if message.author.display_avatar else None,
         )
+        embed.add_field(
+            name="Product to provide",
+            value=purchase["product_name"][:1024],
+            inline=True,
+        )
+        embed.add_field(
+            name="Price",
+            value=f"${purchase['price']:,.2f}",
+            inline=True,
+        )
+        if purchase.get("product_description"):
+            embed.add_field(
+                name="Product details",
+                value=purchase["product_description"][:1024],
+                inline=False,
+            )
 
         files = []
         for attachment in message.attachments:
@@ -203,7 +224,16 @@ class Products(commands.Cog):
         try:
             await owner.send(embed=embed, files=files if files else None)
         except discord.HTTPException:
-            pass
+            try:
+                await message.channel.send(
+                    "⚠️ I couldn't notify the seller right now. Please try again in a moment."
+                )
+            except discord.HTTPException:
+                pass
+            return
+
+        # Consume the purchase context only after the seller was notified.
+        self.awaiting_proof.pop(message.author.id, None)
 
         try:
             await message.channel.send("✅ Your message has been forwarded for verification. Thank you!")
