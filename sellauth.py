@@ -56,6 +56,8 @@ class SellAuth(commands.Cog):
         self.bot = bot
         self.panel_file = os.path.join("data", "sellauth_panels.json")
         self.panels = self._load_panels()
+        self.pending_file = os.path.join("data", "sellauth_pending_purchases.json")
+        self.pending_purchases = self._load_pending_purchases()
 
         # Re-register buttons after a restart so existing product panels keep working.
         for panel_id in self.panels:
@@ -73,6 +75,95 @@ class SellAuth(commands.Cog):
         os.makedirs(os.path.dirname(self.panel_file), exist_ok=True)
         with open(self.panel_file, "w", encoding="utf-8") as f:
             json.dump(self.panels, f, indent=2)
+
+    def _load_pending_purchases(self):
+        try:
+            with open(self.pending_file, "r", encoding="utf-8") as f:
+                pending = json.load(f)
+            return pending if isinstance(pending, dict) else {}
+        except (FileNotFoundError, json.JSONDecodeError, OSError):
+            return {}
+
+    def _save_pending_purchases(self):
+        os.makedirs(os.path.dirname(self.pending_file), exist_ok=True)
+        with open(self.pending_file, "w", encoding="utf-8") as f:
+            json.dump(self.pending_purchases, f, indent=2)
+
+    @commands.Cog.listener()
+    async def on_message(self, message):
+        # Only handle replies in this bot's DMs; never intercept normal server chat.
+        if message.author.bot or message.guild is not None:
+            return
+
+        buyer_key = str(message.author.id)
+        pending = self.pending_purchases.get(buyer_key, [])
+        if not pending:
+            return
+
+        purchase = pending[-1]
+        owner_id = getattr(self.bot, "OWNER_ID", "")
+        try:
+            owner = self.bot.get_user(int(owner_id)) or await self.bot.fetch_user(int(owner_id))
+        except (ValueError, discord.HTTPException):
+            await message.reply(
+                "⚠️ Your reply was received, but the seller notification is not configured."
+            )
+            return
+
+        reply_text = message.content.strip() or "(no text; check the attachment below)"
+        attachments = "\n".join(attachment.url for attachment in message.attachments)
+        order_embed = discord.Embed(
+            title="🛒 New Purchase Reply",
+            description="A buyer replied to the payment instructions.",
+            color=discord.Color.gold(),
+            timestamp=datetime.datetime.utcnow(),
+        )
+        order_embed.add_field(
+            name="Buyer",
+            value=f"{message.author.mention}\nID: {message.author.id}",
+            inline=True,
+        )
+        order_embed.add_field(
+            name="Product",
+            value=purchase.get("product_name", "Unknown product"),
+            inline=True,
+        )
+        order_embed.add_field(
+            name="Price",
+            value=f"${purchase.get('price', '?')}",
+            inline=True,
+        )
+        order_embed.add_field(
+            name="Reply / payment code",
+            value=reply_text[:1024],
+            inline=False,
+        )
+        if attachments:
+            order_embed.add_field(name="Attachments", value=attachments[:1024], inline=False)
+        order_embed.set_footer(text="Provide the product after verifying the payment.")
+
+        try:
+            await owner.send(embed=order_embed)
+        except discord.HTTPException:
+            await message.reply(
+                "⚠️ I couldn't notify the seller right now. Please try again in a moment."
+            )
+            return
+
+        pending.pop()
+        if pending:
+            self.pending_purchases[buyer_key] = pending
+        else:
+            self.pending_purchases.pop(buyer_key, None)
+        try:
+            self._save_pending_purchases()
+        except OSError as exc:
+            print(f"⚠️ Could not save pending purchase state: {exc}")
+
+        await message.reply(
+            "✅ Your reply was sent to the seller. They will verify your payment "
+            "and process the order shortly."
+        )
 
     async def _get_product(self, product_id):
         if not self._configured():
@@ -172,6 +263,19 @@ class SellAuth(commands.Cog):
                 "❌ Discord couldn't deliver the payment instructions. Please try again in a moment.",
                 ephemeral=True,
             )
+
+        buyer_key = str(interaction.user.id)
+        self.pending_purchases.setdefault(buyer_key, []).append({
+            "product_name": self._product_name(product),
+            "price": self._product_price(product),
+            "product_id": panel["product_id"],
+            "panel_id": panel_id,
+            "created_at": datetime.datetime.utcnow().isoformat(),
+        })
+        try:
+            self._save_pending_purchases()
+        except OSError as exc:
+            print(f"⚠️ Could not save pending purchase state: {exc}")
 
         await interaction.followup.send(
             "✅ Check your DMs for payment instructions!", ephemeral=True
